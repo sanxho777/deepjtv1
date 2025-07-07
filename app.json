@@ -11,7 +11,11 @@
     "assetBundlePatterns": [
       "**/*"
     ],
-    "platforms": ["ios", "android", "web"],
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
     "ios": {
       "supportsTablet": true
     },
@@ -28,7 +32,7 @@
     },
     "plugins": [
       "expo-router",
-      "expo-font", 
+      "expo-font",
       "expo-web-browser"
     ],
     "experiments": {
@@ -36,8 +40,18 @@
     },
     "metro": {
       "source": {
-        "include": ["**/*"],
-        "exclude": ["node_modules/**/*"]
+        "include": [
+          "**/*"
+        ],
+        "exclude": [
+          "node_modules/**/*"
+        ]
+      }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "7e95e4d2-7055-43eb-b186-af43e9e13113"
       }
     }
   }
