@@ -22,6 +22,8 @@ import {
   Zap,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import GameModal from '../../components/GameModal';
+import ScorecardModal from '../../components/ScorecardModal';
 
 interface Game {
   id: string;
@@ -34,6 +36,7 @@ interface Game {
   holes: number;
   duration: string;
   weather: string;
+  gameType?: 'practice' | 'tournament' | 'casual';
 }
 
 export default function GamesScreen() {
@@ -49,6 +52,7 @@ export default function GamesScreen() {
       holes: 18,
       duration: '4h 32m',
       weather: 'Sunny, 72°F',
+      gameType: 'tournament',
     },
     {
       id: '2',
@@ -61,6 +65,7 @@ export default function GamesScreen() {
       holes: 18,
       duration: '4h 15m',
       weather: 'Partly Cloudy, 68°F',
+      gameType: 'practice',
     },
     {
       id: '3',
@@ -73,6 +78,7 @@ export default function GamesScreen() {
       holes: 18,
       duration: '',
       weather: 'Forecast: Sunny, 75°F',
+      gameType: 'casual',
     },
     {
       id: '4',
@@ -85,10 +91,14 @@ export default function GamesScreen() {
       holes: 18,
       duration: '3h 45m',
       weather: 'Overcast, 65°F',
+      gameType: 'practice',
     },
   ]);
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'completed' | 'upcoming'>('all');
+  const [showGameModal, setShowGameModal] = useState(false);
+  const [showScorecardModal, setScorecardModal] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
 
   const filteredGames = games.filter(game => {
     if (activeFilter === 'all') return true;
@@ -104,15 +114,12 @@ export default function GamesScreen() {
     : 0;
 
   const handleNewGame = () => {
-    Alert.alert(
-      'New Game',
-      'Would you like to start a new round?',
-      [
-        { text: 'Practice Round', onPress: () => Alert.alert('Practice Round', 'Starting practice round...') },
-        { text: 'Tournament', onPress: () => Alert.alert('Tournament', 'Starting tournament round...') },
-        { text: 'Cancel', style: 'cancel' }
-      ]
-    );
+    setShowGameModal(true);
+  };
+
+  const handleCreateGame = (gameData: any) => {
+    setGames(prev => [gameData, ...prev]);
+    Alert.alert('Game Started', `New ${gameData.gameType} round started at ${gameData.course}`);
   };
 
   const handleGamePress = (game: Game) => {
@@ -121,24 +128,49 @@ export default function GamesScreen() {
         'Upcoming Game',
         `${game.course}\n${game.date}\n${game.players} players\n\n${game.weather}`,
         [
-          { text: 'Edit', onPress: () => Alert.alert('Edit Game', 'Edit game details...') },
-          { text: 'Cancel Game', style: 'destructive' },
+          { text: 'Edit', onPress: () => Alert.alert('Edit Game', 'Game editing functionality would open here') },
+          { 
+            text: 'Cancel Game', 
+            style: 'destructive',
+            onPress: () => {
+              setGames(prev => prev.filter(g => g.id !== game.id));
+              Alert.alert('Game Cancelled', 'The game has been cancelled');
+            }
+          },
           { text: 'OK', style: 'cancel' }
         ]
       );
+    } else if (game.status === 'in-progress') {
+      setSelectedGame(game);
+      setScorecardModal(true);
     } else {
       Alert.alert(
         'Game Details',
         `${game.course}\nScore: ${game.score} (+${game.score - game.par})\nDuration: ${game.duration}\nWeather: ${game.weather}`,
         [
-          { text: 'View Scorecard', onPress: () => Alert.alert('Scorecard', 'Opening detailed scorecard...') },
-          { text: 'Share', onPress: () => Alert.alert('Share', 'Sharing game results...') },
+          { 
+            text: 'View Scorecard', 
+            onPress: () => {
+              setSelectedGame(game);
+              setScorecardModal(true);
+            }
+          },
+          { text: 'Share', onPress: () => Alert.alert('Share', 'Game shared successfully!') },
           { text: 'OK', style: 'cancel' }
         ]
       );
     }
   };
 
+  const handleSaveScore = (totalScore: number) => {
+    if (selectedGame) {
+      setGames(prev => prev.map(game => 
+        game.id === selectedGame.id 
+          ? { ...game, score: totalScore, status: 'completed' as const, duration: '4h 15m' }
+          : game
+      ));
+    }
+  };
   const renderStats = () => (
     <View style={styles.statsContainer}>
       <Text style={styles.sectionTitle}>Your Performance</Text>
@@ -349,6 +381,19 @@ export default function GamesScreen() {
           )}
         </View>
       </ScrollView>
+
+      <GameModal
+        visible={showGameModal}
+        onClose={() => setShowGameModal(false)}
+        onCreateGame={handleCreateGame}
+      />
+
+      <ScorecardModal
+        visible={showScorecardModal}
+        onClose={() => setScorecardModal(false)}
+        gameData={selectedGame}
+        onSaveScore={handleSaveScore}
+      />
     </View>
   );
 }
