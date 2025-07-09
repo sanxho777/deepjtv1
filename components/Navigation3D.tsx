@@ -9,21 +9,7 @@ import {
   Animated,
   Dimensions,
 } from 'react-native';
-import { 
-  X, 
-  Navigation, 
-  Volume2, 
-  VolumeX, 
-  RotateCcw, 
-  MapPin, 
-  Target,
-  ArrowUp,
-  ArrowRight,
-  ArrowLeft,
-  Compass,
-  Zap,
-  CheckCircle
-} from 'lucide-react-native';
+import { X, Navigation, Volume2, VolumeX, RotateCcw, MapPin, Target, ArrowUp, ArrowRight, ArrowLeft, Compass, Zap, CircleCheck as CheckCircle } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
