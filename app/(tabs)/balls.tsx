@@ -85,7 +85,12 @@ export default function BallsScreen() {
         ? { ...ball, connected: true, lastSeen: 'Just now' }
         : ball
     ));
-    Alert.alert('Success', 'Ball connected successfully!');
+    
+    // Simulate connection process
+    Alert.alert('Connecting...', 'Searching for ball...');
+    setTimeout(() => {
+      Alert.alert('Success', 'Ball connected successfully!');
+    }, 1500);
   };
 
   const handleDisconnectBall = (ballId: string) => {
@@ -127,6 +132,8 @@ export default function BallsScreen() {
     }
 
     setIsScanning(true);
+    Alert.alert('Scanning', 'Make sure your ball is powered on and nearby...');
+    
     setTimeout(() => {
       const newBall: GolfBall = {
         id: Date.now().toString(),
@@ -146,7 +153,7 @@ export default function BallsScreen() {
       setIsScanning(false);
       setShowAddModal(false);
       Alert.alert('Success', 'New ball added to your collection!');
-    }, 3000);
+    }, 2000);
   };
 
   const getSignalColor = (signal: string) => {

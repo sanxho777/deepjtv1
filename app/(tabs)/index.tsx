@@ -28,6 +28,8 @@ import {
   Timer,
 } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import ProfileModal from '../../components/ProfileModal';
+import ScorecardModal from '../../components/ScorecardModal';
 
 const { width, height } = Dimensions.get('window');
 
@@ -79,6 +81,25 @@ export default function HomeScreen() {
   ]);
 
   const [pulseAnimation] = useState(new Animated.Value(1));
+  const [selectedBall, setSelectedBall] = useState<GolfBall | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [newBallName, setNewBallName] = useState('');
+  const [isScanning, setIsScanning] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showScorecardModal, setScorecardModal] = useState(false);
+  const [currentGame, setCurrentGame] = useState({
+    course: 'Pebble Creek Golf Club',
+    holes: 18,
+    par: 72,
+  });
+
+  const handleConnectBall = (ballId: string) => {
+    setBalls(prev => prev.map(ball => 
+      ball.id === ballId ? { ...ball, connected: true, battery: 85, lastSeen: 'Just now' } : ball
+    ));
+    Alert.alert('Success', 'Ball connected successfully!');
+  };
 
   useEffect(() => {
     const pulseLoop = Animated.loop(
@@ -108,6 +129,23 @@ export default function HomeScreen() {
       ));
       Alert.alert('Success', 'Successfully connected to Ball #1');
     }, 2000);
+  };
+
+  const handleProfilePress = () => {
+    setShowProfileModal(true);
+  };
+
+  const handleSaveProfile = (profileData: any) => {
+    // In a real app, this would save to a backend or local storage
+    console.log('Profile saved:', profileData);
+  };
+
+  const handleScorecardPress = () => {
+    setScorecardModal(true);
+  };
+
+  const handleSaveScore = (totalScore: number) => {
+    Alert.alert('Score Saved', `Your score of ${totalScore} has been saved!`);
   };
 
   const handleBallPress = (ball: GolfBall) => {
@@ -158,7 +196,7 @@ export default function HomeScreen() {
                  connectionStatus === 'connected' ? 'Connected' : 'Connect'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.profileButton}>
+            <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
               <User color="#ffffff" size={20} />
             </TouchableOpacity>
           </View>
@@ -381,9 +419,9 @@ export default function HomeScreen() {
           <RotateCcw color="#6b7280" size={16} />
           <Text style={styles.resetButtonText}>Reset</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.saveButton}>
+        <TouchableOpacity style={styles.saveButton} onPress={handleScorecardPress}>
           <Save color="#ffffff" size={16} />
-          <Text style={styles.saveButtonText}>Save Game</Text>
+          <Text style={styles.saveButtonText}>Open Scorecard</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -497,6 +535,19 @@ export default function HomeScreen() {
         {renderTabs()}
         {renderTabContent()}
       </ScrollView>
+
+      <ProfileModal
+        visible={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onSave={handleSaveProfile}
+      />
+
+      <ScorecardModal
+        visible={showScorecardModal}
+        onClose={() => setScorecardModal(false)}
+        gameData={currentGame}
+        onSaveScore={handleSaveScore}
+      />
     </View>
   );
 }

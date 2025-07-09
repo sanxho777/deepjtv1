@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Settings as SettingsIcon, User, Bell, Shield, CircleHelp as HelpCircle, Info, LogOut, ChevronRight, Moon, Vibrate, Globe, Smartphone, Database, Trash2, Download, Upload, Mail, MessageCircle, Star, Zap, Battery, Wifi } from 'lucide-react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import ProfileModal from '../../components/ProfileModal';
 
 interface SettingItem {
   id: string;
@@ -30,6 +31,7 @@ export default function SettingsScreen() {
   const [vibration, setVibration] = useState(true);
   const [autoSync, setAutoSync] = useState(true);
   const [batteryOptimization, setBatteryOptimization] = useState(false);
+  const [showProfileModal, setShowProfileModal] = useState(false);
 
   const handleLogout = () => {
     Alert.alert(
@@ -48,7 +50,16 @@ export default function SettingsScreen() {
       'Export all your golf data including scores, statistics, and ball tracking history?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Export', onPress: () => Alert.alert('Export Started', 'Your data export has been started. You will receive an email when it\'s ready.') }
+        { 
+          text: 'Export', 
+          onPress: () => {
+            Alert.alert('Export Started', 'Your data export has been started. You will receive an email when it\'s ready.');
+            // Simulate export process
+            setTimeout(() => {
+              Alert.alert('Export Complete', 'Your data has been exported successfully!');
+            }, 2000);
+          }
+        }
       ]
     );
   };
@@ -59,7 +70,15 @@ export default function SettingsScreen() {
       'Import golf data from another device or backup?',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Import', onPress: () => Alert.alert('Import', 'Select a backup file to import your data.') }
+        { 
+          text: 'Import', 
+          onPress: () => {
+            Alert.alert('Import Started', 'Importing your data...');
+            setTimeout(() => {
+              Alert.alert('Import Complete', 'Your data has been imported successfully!');
+            }, 1500);
+          }
+        }
       ]
     );
   };
@@ -73,7 +92,118 @@ export default function SettingsScreen() {
         { 
           text: 'Delete All', 
           style: 'destructive', 
-          onPress: () => Alert.alert('Data Deleted', 'All your data has been permanently deleted.') 
+          onPress: () => {
+            Alert.alert('Deleting...', 'Removing all data...');
+            setTimeout(() => {
+              Alert.alert('Data Deleted', 'All your data has been permanently deleted.');
+            }, 1000);
+          }
+        }
+      ]
+    );
+  };
+
+  const handleSaveProfile = (profileData: any) => {
+    Alert.alert('Success', 'Profile updated successfully!');
+  };
+
+  const handleHelpPress = () => {
+    Alert.alert(
+      'Help & Support',
+      'Choose how you\'d like to get help:',
+      [
+        { text: 'FAQ', onPress: () => Alert.alert('FAQ', 'Frequently asked questions would open here') },
+        { text: 'Contact Support', onPress: () => Alert.alert('Contact Support', 'Support contact form would open here') },
+        { text: 'User Guide', onPress: () => Alert.alert('User Guide', 'User guide would open here') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleFeedbackPress = () => {
+    Alert.alert(
+      'Send Feedback',
+      'We\'d love to hear from you!',
+      [
+        { text: 'Bug Report', onPress: () => Alert.alert('Bug Report', 'Bug report form would open here') },
+        { text: 'Feature Request', onPress: () => Alert.alert('Feature Request', 'Feature request form would open here') },
+        { text: 'General Feedback', onPress: () => Alert.alert('General Feedback', 'Feedback form would open here') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleRateApp = () => {
+    Alert.alert(
+      'Rate JackTrack',
+      'Enjoying JackTrack? Please rate us on the App Store!',
+      [
+        { text: 'Maybe Later', style: 'cancel' },
+        { text: 'Rate Now', onPress: () => Alert.alert('Thank You!', 'Thank you for rating JackTrack!') }
+      ]
+    );
+  };
+
+  const handleAboutPress = () => {
+    Alert.alert(
+      'About JackTrack',
+      'JackTrack v1.0.0\n\nThe ultimate golf ball tracking app for serious golfers.\n\nBuilt with ❤️ for golfers everywhere.\n\n© 2024 JackTrack. All rights reserved.',
+      [
+        { text: 'Privacy Policy', onPress: () => Alert.alert('Privacy Policy', 'Privacy policy would open here') },
+        { text: 'Terms of Service', onPress: () => Alert.alert('Terms of Service', 'Terms of service would open here') },
+        { text: 'OK', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleLanguagePress = () => {
+    Alert.alert(
+      'Select Language',
+      'Choose your preferred language:',
+      [
+        { text: 'English', onPress: () => Alert.alert('Language', 'Language set to English') },
+        { text: 'Spanish', onPress: () => Alert.alert('Language', 'Language set to Spanish') },
+        { text: 'French', onPress: () => Alert.alert('Language', 'Language set to French') },
+        { text: 'German', onPress: () => Alert.alert('Language', 'Language set to German') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleUnitsPress = () => {
+    Alert.alert(
+      'Measurement Units',
+      'Choose your preferred units:',
+      [
+        { text: 'Imperial (Yards, °F)', onPress: () => Alert.alert('Units', 'Units set to Imperial') },
+        { text: 'Metric (Meters, °C)', onPress: () => Alert.alert('Units', 'Units set to Metric') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handleConnectionTimeoutPress = () => {
+    Alert.alert(
+      'Connection Timeout',
+      'Set the timeout for ball connections:',
+      [
+        { text: '15 seconds', onPress: () => Alert.alert('Timeout', 'Timeout set to 15 seconds') },
+        { text: '30 seconds', onPress: () => Alert.alert('Timeout', 'Timeout set to 30 seconds') },
+        { text: '60 seconds', onPress: () => Alert.alert('Timeout', 'Timeout set to 60 seconds') },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
+  const handlePrivacyPress = () => {
+    Alert.alert(
+      'Privacy & Security',
+      'Manage your privacy and security settings:',
+      [
+        { text: 'Data Privacy', onPress: () => Alert.alert('Data Privacy', 'Data privacy settings would open here') },
+        { text: 'Location Services', onPress: () => Alert.alert('Location Services', 'Location settings would open here') },
+        { text: 'Permissions', onPress: () => Alert.alert('Permissions', 'App permissions would open here') },
+        { text: 'Cancel', style: 'cancel' }
         }
       ]
     );
@@ -86,7 +216,7 @@ export default function SettingsScreen() {
       subtitle: 'Manage your account and preferences',
       icon: User,
       type: 'navigation',
-      onPress: () => Alert.alert('Profile', 'Edit your profile information'),
+      onPress: () => setShowProfileModal(true),
     },
     {
       id: 'notifications',
@@ -103,7 +233,7 @@ export default function SettingsScreen() {
       subtitle: 'Data protection and security settings',
       icon: Shield,
       type: 'navigation',
-      onPress: () => Alert.alert('Privacy', 'Manage your privacy settings'),
+      onPress: handlePrivacyPress,
     },
   ];
 
@@ -132,7 +262,7 @@ export default function SettingsScreen() {
       subtitle: 'English',
       icon: Globe,
       type: 'navigation',
-      onPress: () => Alert.alert('Language', 'Select your preferred language'),
+      onPress: handleLanguagePress,
     },
     {
       id: 'units',
@@ -140,7 +270,7 @@ export default function SettingsScreen() {
       subtitle: 'Yards, Fahrenheit',
       icon: Smartphone,
       type: 'navigation',
-      onPress: () => Alert.alert('Units', 'Select measurement units'),
+      onPress: handleUnitsPress,
     },
   ];
 
@@ -169,7 +299,7 @@ export default function SettingsScreen() {
       subtitle: '30 seconds',
       icon: Zap,
       type: 'navigation',
-      onPress: () => Alert.alert('Connection Timeout', 'Set the timeout for ball connections'),
+      onPress: handleConnectionTimeoutPress,
     },
   ];
 
@@ -208,7 +338,7 @@ export default function SettingsScreen() {
       subtitle: 'Get help and contact support',
       icon: HelpCircle,
       type: 'navigation',
-      onPress: () => Alert.alert('Help', 'Access help documentation and support'),
+      onPress: handleHelpPress,
     },
     {
       id: 'feedback',
@@ -216,7 +346,7 @@ export default function SettingsScreen() {
       subtitle: 'Share your thoughts and suggestions',
       icon: MessageCircle,
       type: 'navigation',
-      onPress: () => Alert.alert('Feedback', 'Send feedback to our team'),
+      onPress: handleFeedbackPress,
     },
     {
       id: 'rate',
@@ -224,7 +354,7 @@ export default function SettingsScreen() {
       subtitle: 'Rate us on the App Store',
       icon: Star,
       type: 'navigation',
-      onPress: () => Alert.alert('Rate App', 'Thank you for considering rating our app!'),
+      onPress: handleRateApp,
     },
     {
       id: 'about',
@@ -232,7 +362,7 @@ export default function SettingsScreen() {
       subtitle: 'App version and information',
       icon: Info,
       type: 'navigation',
-      onPress: () => Alert.alert('About', 'JackTrack v1.0.0\nBuilt with ❤️ for golfers'),
+      onPress: handleAboutPress,
     },
   ];
 
@@ -333,6 +463,12 @@ export default function SettingsScreen() {
           <Text style={styles.footerSubtext}>© 2024 JackTrack. All rights reserved.</Text>
         </View>
       </ScrollView>
+
+      <ProfileModal
+        visible={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onSave={handleSaveProfile}
+      />
     </View>
   );
 }
