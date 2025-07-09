@@ -204,7 +204,6 @@ export default function SettingsScreen() {
         { text: 'Location Services', onPress: () => Alert.alert('Location Services', 'Location settings would open here') },
         { text: 'Permissions', onPress: () => Alert.alert('Permissions', 'App permissions would open here') },
         { text: 'Cancel', style: 'cancel' }
-        }
       ]
     );
   };
