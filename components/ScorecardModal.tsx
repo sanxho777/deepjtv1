@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,12 +9,12 @@ import {
   Alert,
 } from 'react-native';
 import { X, Plus, Minus, Save, RotateCcw, Trophy, Target } from 'lucide-react-native';
+import { useStorage, Score } from '../hooks/useStorage';
 
 interface Hole {
   number: number;
   par: number;
   score: number;
-  strokes: number;
 }
 
 interface ScorecardModalProps {
@@ -25,19 +25,32 @@ interface ScorecardModalProps {
 }
 
 export default function ScorecardModal({ visible, onClose, gameData, onSaveScore }: ScorecardModalProps) {
-  const [holes, setHoles] = useState<Hole[]>(() => {
-    const holeCount = gameData?.holes || 18;
-    const standardPars = holeCount === 18 
-      ? [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4]
-      : [4, 3, 5, 4, 4, 3, 4, 5, 4];
-    
-    return Array.from({ length: holeCount }, (_, i) => ({
-      number: i + 1,
-      par: standardPars[i] || 4,
-      score: 0,
-      strokes: 0,
-    }));
-  });
+  const { saveScore, getScores } = useStorage();
+  const [holes, setHoles] = useState<Hole[]>([]);
+
+  useEffect(() => {
+    const loadScores = async () => {
+      if (gameData) {
+        const allScores = await getScores();
+        const gameScores = allScores.filter(s => s.gameId === gameData.id);
+        const holeCount = gameData?.holes || 18;
+        const standardPars = holeCount === 18 
+          ? [4, 3, 5, 4, 4, 3, 4, 5, 4, 4, 3, 5, 4, 4, 3, 4, 5, 4]
+          : [4, 3, 5, 4, 4, 3, 4, 5, 4];
+
+        const initialHoles = Array.from({ length: holeCount }, (_, i) => {
+          const existingScore = gameScores.find(s => s.hole === i + 1);
+          return {
+            number: i + 1,
+            par: standardPars[i] || 4,
+            score: existingScore ? existingScore.score : 0,
+          };
+        });
+        setHoles(initialHoles);
+      }
+    };
+    loadScores();
+  }, [gameData]);
 
   const updateScore = (holeIndex: number, change: number) => {
     setHoles(prev => prev.map((hole, index) => 
@@ -62,25 +75,23 @@ export default function ScorecardModal({ visible, onClose, gameData, onSaveScore
     );
   };
 
-  const saveScorecard = () => {
+  const saveScorecard = async () => {
     const totalScore = holes.reduce((sum, hole) => sum + hole.score, 0);
-    const totalPar = holes.reduce((sum, hole) => sum + hole.par, 0);
     
-    Alert.alert(
-      'Save Scorecard',
-      `Total Score: ${totalScore}\nPar: ${totalPar}\nDifference: ${totalScore === totalPar ? 'E' : totalScore > totalPar ? `+${totalScore - totalPar}` : `${totalScore - totalPar}`}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Save', 
-          onPress: () => {
-            onSaveScore(totalScore);
-            onClose();
-            Alert.alert('Success', 'Scorecard saved successfully!');
-          }
-        }
-      ]
-    );
+    for (const hole of holes) {
+      if (hole.score > 0) {
+        const scoreData: Score = {
+          gameId: gameData.id,
+          hole: hole.number,
+          score: hole.score,
+        };
+        await saveScore(scoreData);
+      }
+    }
+    
+    onSaveScore(totalScore);
+    onClose();
+    Alert.alert('Success', 'Scorecard saved successfully!');
   };
 
   const totalScore = holes.reduce((sum, hole) => sum + hole.score, 0);

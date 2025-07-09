@@ -8,6 +8,8 @@ import {
   Alert,
   Animated,
   Dimensions,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { 
@@ -30,6 +32,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import ProfileModal from '../../components/ProfileModal';
 import ScorecardModal from '../../components/ScorecardModal';
+import Navigation3D from '../../components/Navigation3D';
+import useBLE from '../../hooks/useBLE';
+import { Device } from 'react-native-ble-plx';
 
 const { width, height } = Dimensions.get('window');
 
@@ -40,7 +45,8 @@ interface GolfBall {
   distance: number;
   battery: number;
   lastSeen: string;
-  position: { x: number; y: number };
+  position: { x: number; y: number; z: number; };
+  device: Device | null;
 }
 
 interface ScoreData {
@@ -50,56 +56,79 @@ interface ScoreData {
 }
 
 export default function HomeScreen() {
+  const {
+    requestPermissions,
+    scanForPeripherals,
+    allDevices,
+    connectToDevice,
+    connectedDevice,
+    disconnectFromDevice,
+  } = useBLE();
+  const [isBleModalVisible, setIsBleModalVisible] = useState<boolean>(false);
+
   const [activeTab, setActiveTab] = useState<'tracking' | 'scorecard' | 'stats'>('tracking');
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [balls, setBalls] = useState<GolfBall[]>([
     {
       id: '1',
       name: 'Ball #1',
-      connected: true,
-      distance: 86,
-      battery: 78,
-      lastSeen: '2 min ago',
-      position: { x: 60, y: 60 }
-    },
-    {
-      id: '2',
-      name: 'Ball #2',
       connected: false,
       distance: 0,
       battery: 0,
       lastSeen: 'Not connected',
-      position: { x: 0, y: 0 }
-    }
+      position: { x: 10, y: 0, z: -10 },
+      device: null,
+    },
   ]);
   
   const [scoreData, setScoreData] = useState<ScoreData[]>([
-    { hole: 1, par: 4, score: 5 },
-    { hole: 2, par: 3, score: 3 },
-    { hole: 3, par: 5, score: 6 },
-    { hole: 4, par: 3, score: 5 },
+    { hole: 1, par: 4, score: 0 },
+    { hole: 2, par: 3, score: 0 },
+    { hole: 3, par: 5, score: 0 },
+    { hole: 4, par: 3, score: 0 },
   ]);
 
   const [pulseAnimation] = useState(new Animated.Value(1));
-  const [selectedBall, setSelectedBall] = useState<GolfBall | null>(null);
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [newBallName, setNewBallName] = useState('');
-  const [isScanning, setIsScanning] = useState(false);
   const [showProfileModal, setShowProfileModal] = useState(false);
   const [showScorecardModal, setScorecardModal] = useState(false);
+  const [showNavigationModal, setShowNavigationModal] = useState(false);
+  const [selectedBall, setSelectedBall] = useState<GolfBall | null>(null);
   const [currentGame, setCurrentGame] = useState({
     course: 'Pebble Creek Golf Club',
     holes: 18,
     par: 72,
   });
 
-  const handleConnectBall = (ballId: string) => {
-    setBalls(prev => prev.map(ball => 
-      ball.id === ballId ? { ...ball, connected: true, battery: 85, lastSeen: 'Just now' } : ball
-    ));
-    Alert.alert('Success', 'Ball connected successfully!');
+  const openBleModal = async () => {
+    const isPermissionsEnabled = await requestPermissions();
+    if (isPermissionsEnabled) {
+      scanForPeripherals();
+      setIsBleModalVisible(true);
+    } else {
+      Alert.alert('Permissions required', 'Please grant bluetooth permissions to use this feature.');
+    }
   };
+
+  const handleConnectBall = (device: Device) => {
+    connectToDevice(device);
+    setIsBleModalVisible(false);
+  };
+
+  useEffect(() => {
+    if (connectedDevice) {
+      setBalls(prev =>
+        prev.map(ball =>
+          ball.id === '1'
+            ? {
+                ...ball,
+                connected: true,
+                device: connectedDevice,
+                name: connectedDevice.name || 'Golf Ball',
+              }
+            : ball,
+        ),
+      );
+    }
+  }, [connectedDevice]);
 
   useEffect(() => {
     const pulseLoop = Animated.loop(
@@ -120,23 +149,11 @@ export default function HomeScreen() {
     return () => pulseLoop.stop();
   }, []);
 
-  const handleConnect = () => {
-    setConnectionStatus('connecting');
-    setTimeout(() => {
-      setConnectionStatus('connected');
-      setBalls(prev => prev.map(ball => 
-        ball.id === '1' ? { ...ball, connected: true } : ball
-      ));
-      Alert.alert('Success', 'Successfully connected to Ball #1');
-    }, 2000);
-  };
-
   const handleProfilePress = () => {
     setShowProfileModal(true);
   };
 
   const handleSaveProfile = (profileData: any) => {
-    // In a real app, this would save to a backend or local storage
     console.log('Profile saved:', profileData);
   };
 
@@ -149,14 +166,8 @@ export default function HomeScreen() {
   };
 
   const handleBallPress = (ball: GolfBall) => {
-    Alert.alert(
-      'Ball Details',
-      `Distance: ${ball.distance} yards\nBattery: ${ball.battery}%\nLast signal: ${ball.lastSeen}`,
-      [
-        { text: 'Navigate', onPress: () => Alert.alert('Navigation', 'Opening navigation to ball...') },
-        { text: 'OK', style: 'cancel' }
-      ]
-    );
+    setSelectedBall(ball);
+    setShowNavigationModal(true);
   };
 
   const updateScore = (hole: number, newScore: number) => {
@@ -187,13 +198,11 @@ export default function HomeScreen() {
           <View style={styles.headerRight}>
             <TouchableOpacity 
               style={styles.connectButton}
-              onPress={handleConnect}
-              disabled={connectionStatus === 'connecting'}
+              onPress={openBleModal}
             >
               <Bluetooth color="#ffffff" size={16} />
               <Text style={styles.connectButtonText}>
-                {connectionStatus === 'connecting' ? 'Connecting...' : 
-                 connectionStatus === 'connected' ? 'Connected' : 'Connect'}
+                {connectedDevice ? 'Connected' : 'Connect'}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.profileButton} onPress={handleProfilePress}>
@@ -223,49 +232,11 @@ export default function HomeScreen() {
         colors={['#4ade80', '#22c55e']}
         style={styles.golfMap}
       >
-        {/* Hole marker */}
-        <View style={[styles.holeMarker, { top: 50, right: 60 }]}>
-          <Text style={styles.holeText}>4</Text>
-        </View>
-        
-        {/* Player position */}
-        <View style={[styles.playerMarker, { bottom: 80, left: 100 }]} />
-        
-        {/* Ball marker */}
-        {balls.filter(ball => ball.connected).map(ball => (
-          <TouchableOpacity
-            key={ball.id}
-            style={[
-              styles.ballMarker,
-              { 
-                top: `${ball.position.y}%`, 
-                left: `${ball.position.x}%`,
-                transform: [{ scale: pulseAnimation }]
-              }
-            ]}
-            onPress={() => handleBallPress(ball)}
-          >
-            <Animated.View style={styles.ballDot} />
-          </TouchableOpacity>
-        ))}
-        
-        {/* Distance indicators */}
-        <View style={[styles.distanceIndicator, { top: '40%', left: '40%' }]}>
-          <Text style={styles.distanceText}>142 yd</Text>
-        </View>
-        <View style={[styles.distanceIndicator, { top: '55%', left: '45%' }]}>
-          <Text style={styles.distanceText}>86 yd</Text>
-        </View>
-        
-        {/* Water hazard */}
-        <View style={[styles.waterHazard, { top: '30%', left: '40%' }]} />
-        
-        {/* Sand trap */}
-        <View style={[styles.sandTrap, { top: '45%', right: '20%' }]} />
+        <Text style={{color: 'white'}}>3D Map will be in the navigation modal</Text>
       </LinearGradient>
       
       <View style={styles.mapActions}>
-        <TouchableOpacity style={styles.navigateButton}>
+        <TouchableOpacity style={styles.navigateButton} onPress={() => balls[0] && handleBallPress(balls[0])}>
           <Navigation color="#ffffff" size={16} />
           <Text style={styles.navigateButtonText}>Navigate to Ball</Text>
         </TouchableOpacity>
@@ -326,7 +297,7 @@ export default function HomeScreen() {
               <Text style={styles.ballName}>{ball.name}</Text>
               <View style={styles.ballStatus}>
                 <Clock color="#6b7280" size={12} />
-                <Text style={styles.ballStatusText}>{ball.lastSeen}</Text>
+                <Text style={styles.ballStatusText}>{ball.connected ? 'Connected' : 'Disconnected'}</Text>
               </View>
               {ball.connected && (
                 <View style={styles.ballMetrics}>
@@ -349,18 +320,13 @@ export default function HomeScreen() {
                 <Text style={styles.ballDistanceLabel}>from position</Text>
               </View>
             ) : (
-              <TouchableOpacity style={styles.connectBallButton}>
+              <TouchableOpacity style={styles.connectBallButton} onPress={openBleModal}>
                 <Text style={styles.connectBallButtonText}>Connect</Text>
               </TouchableOpacity>
             )}
           </View>
         </TouchableOpacity>
       ))}
-      
-      <TouchableOpacity style={styles.addBallButton}>
-        <Plus color="#6b7280" size={20} />
-        <Text style={styles.addBallButtonText}>Add New Golf Ball</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -430,82 +396,6 @@ export default function HomeScreen() {
   const renderStatsTab = () => (
     <View style={styles.tabContent}>
       <Text style={styles.sectionTitle}>Your Statistics</Text>
-      
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <TrendingUp color="#16a34a" size={20} />
-            <Text style={styles.statCardTitle}>Average Score</Text>
-          </View>
-          <Text style={styles.statCardValue}>89</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <Award color="#3b82f6" size={20} />
-            <Text style={styles.statCardTitle}>Best Round</Text>
-          </View>
-          <Text style={styles.statCardValue}>82</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <Target color="#8b5cf6" size={20} />
-            <Text style={styles.statCardTitle}>Fairways Hit</Text>
-          </View>
-          <Text style={styles.statCardValue}>64%</Text>
-        </View>
-        
-        <View style={styles.statCard}>
-          <View style={styles.statCardHeader}>
-            <Zap color="#eab308" size={20} />
-            <Text style={styles.statCardTitle}>GIR</Text>
-          </View>
-          <Text style={styles.statCardValue}>42%</Text>
-        </View>
-      </View>
-      
-      <Text style={styles.sectionTitle}>Recent Rounds</Text>
-      
-      <View style={styles.recentRounds}>
-        <View style={styles.roundCard}>
-          <View style={styles.roundHeader}>
-            <Text style={styles.roundCourse}>Pebble Creek GC</Text>
-            <Text style={styles.roundDate}>Jun 12, 2023</Text>
-          </View>
-          <View style={styles.roundStats}>
-            <View style={styles.roundStatColumn}>
-              <Text style={styles.roundStatValue}>Score: 89</Text>
-              <Text style={styles.roundStatValue}>+17</Text>
-            </View>
-            <View style={styles.roundStatColumn}>
-              <Text style={styles.roundStatValue}>Fairways: 8/14</Text>
-              <Text style={styles.roundStatValue}>GIR: 6/18</Text>
-            </View>
-          </View>
-        </View>
-        
-        <View style={styles.roundCard}>
-          <View style={styles.roundHeader}>
-            <Text style={styles.roundCourse}>Oakmont CC</Text>
-            <Text style={styles.roundDate}>May 28, 2023</Text>
-          </View>
-          <View style={styles.roundStats}>
-            <View style={styles.roundStatColumn}>
-              <Text style={styles.roundStatValue}>Score: 92</Text>
-              <Text style={styles.roundStatValue}>+20</Text>
-            </View>
-            <View style={styles.roundStatColumn}>
-              <Text style={styles.roundStatValue}>Fairways: 7/14</Text>
-              <Text style={styles.roundStatValue}>GIR: 5/18</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-      
-      <TouchableOpacity style={styles.viewAllButton}>
-        <Text style={styles.viewAllButtonText}>View All Statistics</Text>
-      </TouchableOpacity>
     </View>
   );
 
@@ -520,6 +410,38 @@ export default function HomeScreen() {
       default:
         return renderTrackingTab();
     }
+  };
+
+  const renderDeviceModal = () => {
+    const renderItem = ({ item }: { item: Device }) => (
+      <TouchableOpacity style={styles.deviceItem} onPress={() => handleConnectBall(item)}>
+        <Text style={styles.deviceName}>{item.name || 'Unknown Device'}</Text>
+        <Text style={styles.deviceRssi}>RSSI: {item.rssi}</Text>
+      </TouchableOpacity>
+    );
+
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={isBleModalVisible}
+        onRequestClose={() => setIsBleModalVisible(false)}
+      >
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Scan for Devices</Text>
+            <FlatList
+              data={allDevices}
+              renderItem={renderItem}
+              keyExtractor={item => item.id}
+            />
+            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setIsBleModalVisible(false)}>
+              <Text style={styles.modalCloseButtonText}>Close</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    );
   };
 
   return (
@@ -548,6 +470,14 @@ export default function HomeScreen() {
         gameData={currentGame}
         onSaveScore={handleSaveScore}
       />
+
+      <Navigation3D
+        visible={showNavigationModal}
+        onClose={() => setShowNavigationModal(false)}
+        ball={selectedBall}
+      />
+
+      {renderDeviceModal()}
     </View>
   );
 }
@@ -574,7 +504,6 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 24,
-    fontFamily: 'Inter-Bold',
     color: '#ffffff',
     marginLeft: 8,
   },
@@ -595,7 +524,6 @@ const styles = StyleSheet.create({
   connectButtonText: {
     color: '#ffffff',
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
   },
   profileButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -623,7 +551,6 @@ const styles = StyleSheet.create({
   },
   mapTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
     color: '#111827',
   },
   mapControls: {
@@ -641,70 +568,8 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     position: 'relative',
     overflow: 'hidden',
-  },
-  holeMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#000000',
-    position: 'absolute',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  holeText: {
-    color: '#ffffff',
-    fontSize: 12,
-    fontFamily: 'Inter-Bold',
-  },
-  playerMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#3b82f6',
-    position: 'absolute',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  ballMarker: {
-    position: 'absolute',
-    padding: 4,
-  },
-  ballDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  distanceIndicator: {
-    position: 'absolute',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  distanceText: {
-    fontSize: 12,
-    fontFamily: 'Inter-Bold',
-    color: '#111827',
-  },
-  waterHazard: {
-    position: 'absolute',
-    width: '30%',
-    height: '15%',
-    backgroundColor: 'rgba(59, 130, 246, 0.5)',
-    borderRadius: 50,
-  },
-  sandTrap: {
-    position: 'absolute',
-    width: '15%',
-    height: '10%',
-    backgroundColor: 'rgba(251, 191, 36, 0.7)',
-    borderRadius: 10,
   },
   mapActions: {
     flexDirection: 'row',
@@ -723,7 +588,6 @@ const styles = StyleSheet.create({
   navigateButtonText: {
     color: '#ffffff',
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
   },
   switchHoleButton: {
     backgroundColor: '#f3f4f6',
@@ -734,7 +598,6 @@ const styles = StyleSheet.create({
   switchHoleButtonText: {
     color: '#374151',
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
   },
   tabContainer: {
     flexDirection: 'row',
@@ -758,7 +621,6 @@ const styles = StyleSheet.create({
   },
   tabText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
     color: '#6b7280',
   },
   activeTabText: {
@@ -769,7 +631,6 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
     color: '#111827',
     marginBottom: 16,
   },
@@ -813,7 +674,6 @@ const styles = StyleSheet.create({
   },
   ballName: {
     fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
     color: '#111827',
     marginBottom: 4,
   },
@@ -825,7 +685,6 @@ const styles = StyleSheet.create({
   },
   ballStatusText: {
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
     color: '#6b7280',
   },
   ballMetrics: {
@@ -839,7 +698,6 @@ const styles = StyleSheet.create({
   },
   ballMetricText: {
     fontSize: 12,
-    fontFamily: 'Inter-Medium',
     color: '#374151',
   },
   ballCardRight: {
@@ -850,12 +708,10 @@ const styles = StyleSheet.create({
   },
   ballDistanceValue: {
     fontSize: 18,
-    fontFamily: 'Inter-Bold',
     color: '#111827',
   },
   ballDistanceLabel: {
     fontSize: 12,
-    fontFamily: 'Inter-Regular',
     color: '#6b7280',
   },
   connectBallButton: {
@@ -866,26 +722,7 @@ const styles = StyleSheet.create({
   },
   connectBallButtonText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
     color: '#374151',
-  },
-  addBallButton: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 2,
-    borderColor: '#e5e7eb',
-    borderStyle: 'dashed',
-  },
-  addBallButtonText: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#6b7280',
   },
   scorecard: {
     backgroundColor: '#ffffff',
@@ -902,7 +739,6 @@ const styles = StyleSheet.create({
   scorecardHeaderText: {
     flex: 1,
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
     color: '#ffffff',
     textAlign: 'center',
   },
@@ -919,7 +755,6 @@ const styles = StyleSheet.create({
   scorecardCell: {
     flex: 1,
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
     color: '#374151',
     textAlign: 'center',
   },
@@ -933,7 +768,6 @@ const styles = StyleSheet.create({
   },
   scoreInputText: {
     fontSize: 14,
-    fontFamily: 'Inter-SemiBold',
     color: '#374151',
   },
   scoreOver: {
@@ -954,7 +788,6 @@ const styles = StyleSheet.create({
   scorecardTotalText: {
     flex: 1,
     fontSize: 14,
-    fontFamily: 'Inter-Bold',
     color: '#111827',
     textAlign: 'center',
   },
@@ -974,7 +807,6 @@ const styles = StyleSheet.create({
   },
   resetButtonText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
     color: '#374151',
   },
   saveButton: {
@@ -988,94 +820,48 @@ const styles = StyleSheet.create({
   },
   saveButtonText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
     color: '#ffffff',
   },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
-  },
-  statCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    width: (width - 44) / 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  statCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
-  },
-  statCardTitle: {
-    fontSize: 12,
-    fontFamily: 'Inter-Medium',
-    color: '#6b7280',
-  },
-  statCardValue: {
-    fontSize: 24,
-    fontFamily: 'Inter-Bold',
-    color: '#111827',
-  },
-  recentRounds: {
-    gap: 12,
-    marginBottom: 16,
-  },
-  roundCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  roundHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  roundCourse: {
-    fontSize: 16,
-    fontFamily: 'Inter-SemiBold',
-    color: '#111827',
-  },
-  roundDate: {
-    fontSize: 12,
-    fontFamily: 'Inter-Regular',
-    color: '#6b7280',
-  },
-  roundStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  roundStatColumn: {
+  modalContainer: {
     flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  roundStatValue: {
-    fontSize: 14,
-    fontFamily: 'Inter-Medium',
-    color: '#374151',
-    marginBottom: 2,
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 16,
+    width: '80%',
+    maxHeight: '60%',
   },
-  viewAllButton: {
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  deviceItem: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  deviceName: {
+    fontSize: 16,
+  },
+  deviceRssi: {
+    fontSize: 12,
+    color: '#6b7280',
+  },
+  modalCloseButton: {
+    marginTop: 16,
     backgroundColor: '#f3f4f6',
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: 'center',
   },
-  viewAllButtonText: {
+  modalCloseButtonText: {
     fontSize: 14,
-    fontFamily: 'Inter-Medium',
     color: '#374151',
   },
 });

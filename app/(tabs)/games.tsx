@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -24,12 +24,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import GameModal from '../../components/GameModal';
 import ScorecardModal from '../../components/ScorecardModal';
+import { useStorage, Game as StoredGame, Score } from '../../hooks/useStorage';
 
-interface Game {
-  id: string;
-  course: string;
-  date: string;
-  players: number;
+interface Game extends StoredGame {
   score: number;
   par: number;
   status: 'completed' | 'in-progress' | 'upcoming';
@@ -40,60 +37,32 @@ interface Game {
 }
 
 export default function GamesScreen() {
-  const [games, setGames] = useState<Game[]>([
-    {
-      id: '1',
-      course: 'Pebble Creek Golf Club',
-      date: '2024-01-15',
-      players: 4,
-      score: 89,
-      par: 72,
-      status: 'completed',
-      holes: 18,
-      duration: '4h 32m',
-      weather: 'Sunny, 72°F',
-      gameType: 'tournament',
-    },
-    {
-      id: '2',
-      course: 'Oakmont Country Club',
-      date: '2024-01-12',
-      players: 2,
-      score: 92,
-      par: 72,
-      status: 'completed',
-      holes: 18,
-      duration: '4h 15m',
-      weather: 'Partly Cloudy, 68°F',
-      gameType: 'practice',
-    },
-    {
-      id: '3',
-      course: 'Augusta National',
-      date: '2024-01-20',
-      players: 3,
-      score: 0,
-      par: 72,
-      status: 'upcoming',
-      holes: 18,
-      duration: '',
-      weather: 'Forecast: Sunny, 75°F',
-      gameType: 'casual',
-    },
-    {
-      id: '4',
-      course: 'Riverview Golf Course',
-      date: '2024-01-08',
-      players: 1,
-      score: 85,
-      par: 72,
-      status: 'completed',
-      holes: 18,
-      duration: '3h 45m',
-      weather: 'Overcast, 65°F',
-      gameType: 'practice',
-    },
-  ]);
+  const { getGames, saveGame, getScores } = useStorage();
+  const [games, setGames] = useState<Game[]>([]);
+  const [scores, setScores] = useState<Score[]>([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      const storedGames = await getGames();
+      const storedScores = await getScores();
+      setScores(storedScores);
+      const gamesWithScores = storedGames.map(game => {
+        const gameScores = storedScores.filter(score => score.gameId === game.id);
+        const totalScore = gameScores.reduce((acc, score) => acc + score.score, 0);
+        return {
+          ...game,
+          score: totalScore,
+          par: 72, // Placeholder
+          status: 'completed', // Placeholder
+          holes: 18, // Placeholder
+          duration: '4h', // Placeholder
+          weather: 'Sunny', // Placeholder
+        };
+      });
+      setGames(gamesWithScores);
+    };
+    loadData();
+  }, []);
 
   const [activeFilter, setActiveFilter] = useState<'all' | 'completed' | 'upcoming'>('all');
   const [showGameModal, setShowGameModal] = useState(false);
@@ -118,57 +87,30 @@ export default function GamesScreen() {
   };
 
   const handleCreateGame = (gameData: any) => {
-    setGames(prev => [gameData, ...prev]);
-    Alert.alert('Game Started', `New ${gameData.gameType} round started at ${gameData.course}`);
+    const newGame: StoredGame = {
+      id: Date.now().toString(),
+      course: gameData.course,
+      date: new Date().toISOString(),
+      players: [gameData.player1, gameData.player2].filter(p => p),
+    };
+    saveGame(newGame);
+    setGames(prev => [{ ...newGame, score: 0, par: 72, status: 'in-progress', holes: 18, duration: '', weather: '' }, ...prev]);
+    Alert.alert('Game Started', `New round started at ${newGame.course}`);
   };
 
   const handleGamePress = (game: Game) => {
-    if (game.status === 'upcoming') {
-      Alert.alert(
-        'Upcoming Game',
-        `${game.course}\n${game.date}\n${game.players} players\n\n${game.weather}`,
-        [
-          { text: 'Edit', onPress: () => Alert.alert('Edit Game', 'Game editing functionality would open here') },
-          { 
-            text: 'Cancel Game', 
-            style: 'destructive',
-            onPress: () => {
-              setGames(prev => prev.filter(g => g.id !== game.id));
-              Alert.alert('Game Cancelled', 'The game has been cancelled');
-            }
-          },
-          { text: 'OK', style: 'cancel' }
-        ]
-      );
-    } else if (game.status === 'in-progress') {
-      setSelectedGame(game);
-      setScorecardModal(true);
-    } else {
-      Alert.alert(
-        'Game Details',
-        `${game.course}\nScore: ${game.score} (+${game.score - game.par})\nDuration: ${game.duration}\nWeather: ${game.weather}`,
-        [
-          { 
-            text: 'View Scorecard', 
-            onPress: () => {
-              setSelectedGame(game);
-              setScorecardModal(true);
-            }
-          },
-          { text: 'Share', onPress: () => Alert.alert('Share', 'Game shared successfully!') },
-          { text: 'OK', style: 'cancel' }
-        ]
-      );
-    }
+    setSelectedGame(game);
+    setScorecardModal(true);
   };
 
   const handleSaveScore = (totalScore: number) => {
     if (selectedGame) {
-      setGames(prev => prev.map(game => 
+      const updatedGames = games.map(game => 
         game.id === selectedGame.id 
           ? { ...game, score: totalScore, status: 'completed' as const, duration: '4h 15m' }
           : game
-      ));
+      );
+      setGames(updatedGames);
     }
   };
   const renderStats = () => (
